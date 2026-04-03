@@ -1,0 +1,42 @@
+auth:
+  provider: ${AUTH_PROVIDER:firebase}
+  providers:
+    firebase:
+      project_id: ${FIREBASE_PROJECT_ID}
+      service_account_path: ${FIREBASE_SA_PATH:.secrets/firebase-service-account.json}
+
+    azure_ad:
+      tenant_id: ${AZURE_TENANT_ID}
+      client_id: ${AZURE_CLIENT_ID}
+
+    jwt:
+      jwks_url: ${JWT_JWKS_URL}
+      issuer: ${JWT_ISSUER}
+      audience: ${JWT_AUDIENCE}
+
+gcp:
+  project_id: ${GCP_PROJECT_ID}
+
+mcp_server:
+  url: ${MCP_SERVER_URL:http://localhost:8001/mcp}
+  host: ${MCP_HOST:0.0.0.0}
+  port: ${MCP_PORT:8001}
+  scopes:
+    - "weather:read"
+
+agent_api:
+  host: ${AGENT_HOST:0.0.0.0}
+  port: ${AGENT_PORT:8000}
+
+llm:
+  model: ${LLM_MODEL:openai/qwen3.5:9b}
+  base_url: ${LLM_BASE_URL:http://localhost:11434/v1}
+  api_key: ${LLM_API_KEY:ollama}
+
+roles:
+  admin:
+    scopes: ["weather:read"]
+  editor:
+    scopes: ["weather:read"]
+  viewer:
+    scopes: ["weather:read"]

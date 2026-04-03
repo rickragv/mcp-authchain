@@ -1,0 +1,13 @@
+.secrets/
+.env
+__pycache__/
+*.pyc
+.venv/
+venv/
+dist/
+*.egg-info/
+.ruff_cache/
+.pytest_cache/
+node_modules/
+frontend/dist/
+.idea/

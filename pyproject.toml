@@ -1,0 +1,33 @@
+[project]
+name = "mcp-auth"
+version = "0.1.0"
+description = "Production MCP server + Agent API with Firebase Auth -- E2E demo"
+requires-python = ">=3.11"
+dependencies = [
+    "mcp[cli]>=1.0",
+    "python-dotenv",
+    "starlette",
+    "fastapi",
+    "uvicorn[standard]",
+    "firebase-admin",
+    "google-adk",
+    "litellm",
+    "pydantic>=2.0",
+    "pydantic-settings",
+    "structlog",
+    "httpx",
+    "pyyaml",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "ruff",
+]
+
+[tool.setuptools.packages.find]
+include = ["commons*", "mcp_server*", "agent_api*"]
+
+[tool.ruff]
+line-length = 100

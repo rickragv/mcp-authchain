@@ -1,0 +1,10 @@
+mcp[cli]>=1.0
+starlette
+uvicorn[standard]
+firebase-admin
+pydantic>=2.0
+pydantic-settings
+structlog
+httpx
+pyyaml
+python-dotenv

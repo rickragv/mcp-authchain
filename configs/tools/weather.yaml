@@ -1,0 +1,12 @@
+name: "get_weather"
+description: "Get current weather for a city using Open-Meteo API (free, no API key)."
+required_scopes:
+  - "weather:read"
+parameters:
+  - name: "city"
+    type: "string"
+    description: "City name to get weather for"
+    required: true
+api:
+  geocode_url: "https://geocoding-api.open-meteo.com/v1/search"
+  weather_url: "https://api.open-meteo.com/v1/forecast"
