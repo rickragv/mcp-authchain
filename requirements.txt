@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+starlette
+google-adk
+litellm
+mcp[cli]>=1.0
+firebase-admin
+pydantic>=2.0
+pydantic-settings
+structlog
+httpx
+pyyaml
+python-dotenv
