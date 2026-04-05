@@ -4,6 +4,9 @@ E2E demo of **authenticated MCP (Model Context Protocol)** with multi-user, mult
 
 <img src="docs/demo.png" alt="MCP Auth Demo" width="600">
 
+### Claude Desktop Connector with OAuth 2.1 + DCR Authentication
+<img src="docs/claude-desktop-connector.gif" alt="Claude Desktop Connector with OAuth 2.1 + DCR Authentication" width="800">
+
 ## Table of Contents
 
 - [Features](#features)
@@ -25,6 +28,8 @@ E2E demo of **authenticated MCP (Model Context Protocol)** with multi-user, mult
 | :gear: | **Config-driven** | All settings in YAML, swap LLM models without code changes |
 | :bar_chart: | **Structured output** | Agent returns JSON, frontend renders weather cards |
 | :bust_in_silhouette: | **Scope-based RBAC** | Tools check scopes from Firebase custom claims |
+| :globe_with_meridians: | **OAuth 2.1 + DCR** | Claude Desktop connects via OAuth with Dynamic Client Registration |
+| :cloud: | **Cloud Run ready** | Single-port deployment with HTTPS + tunnel support for local testing |
 
 ## Quick Start
 
@@ -156,6 +161,12 @@ mcp-authchain/
 ├── mcp-server/
 │   ├── main.py                # FastMCP app + pluggable bearer auth middleware
 │   ├── auth/                  # Pluggable auth providers (Firebase, Azure AD, JWT)
+│   ├── oauth/                 # OAuth 2.1 + DCR for Claude Desktop integration
+│   │   ├── endpoints.py       # Well-known, /register, /authorize, /token
+│   │   ├── store.py           # In-memory client/code/token storage
+│   │   ├── token_service.py   # RS256 JWT minting + verification
+│   │   ├── pkce.py            # PKCE S256 validation
+│   │   └── templates.py       # Firebase login page HTML
 │   └── tools/
 │       ├── __init__.py        # Auto-discovery of BaseMCPTool subclasses
 │       ├── base.py            # BaseMCPTool base class
@@ -190,7 +201,8 @@ mcp-authchain/
 │   ├── adding-tools.md        # How to add new MCP tools
 │   ├── auth-middleware.md      # How to change auth middleware
 │   ├── creating-agents.md      # How to create new agents
-│   └── auth-chain.md          # How the auth chain works (multi-user, multi-session)
+│   ├── auth-chain.md          # How the auth chain works (multi-user, multi-session)
+│   └── oauth-dcr-setup.md     # OAuth 2.1 + DCR setup for Claude Desktop
 └── docker-compose.yml         # All 3 services
 ```
 
@@ -202,6 +214,36 @@ mcp-authchain/
 | [Auth Middleware](docs/auth-middleware.md) | How to change or replace the auth middleware (Firebase, Auth0, Keycloak, custom) |
 | [Creating Agents](docs/creating-agents.md) | How to create new agents, sub-agents, role-based agents, and pass context |
 | [Auth Chain](docs/auth-chain.md) | How multi-user, multi-session auth works end-to-end with token isolation |
+| [OAuth + DCR Setup](docs/oauth-dcr-setup.md) | How to connect Claude Desktop via OAuth 2.1 with Dynamic Client Registration |
+
+## Claude Desktop Integration
+
+<img src="docs/claude-desktop-connector.gif" alt="Claude Desktop Connector Demo" width="800">
+
+Connect Claude Desktop to your MCP server using OAuth 2.1 + DCR:
+
+```bash
+# 1. Add Firebase Web SDK config to .env
+FIREBASE_WEB_API_KEY=your-firebase-web-api-key
+FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+
+# 2. Start MCP server
+conda activate mcp-auth
+python -m uvicorn run_mcp_server:app --host 0.0.0.0 --port 8001
+
+# 3. Expose via tunnel (for local testing)
+pip install pycloudflared
+cloudflared tunnel --url http://localhost:8001
+# → https://random-words.trycloudflare.com
+
+# 4. Set OAUTH_ISSUER to tunnel URL in .env and restart server
+
+# 5. In Claude Desktop: Settings → Connectors → Add
+#    URL: https://random-words.trycloudflare.com/mcp
+```
+
+Claude Desktop will automatically discover OAuth endpoints, register itself (DCR), and open your browser for Firebase login. See [OAuth + DCR Setup](docs/oauth-dcr-setup.md) for the full guide.
+
 ## Config Reference
 
 All sensitive config lives in `.env` (gitignored). `configs/settings.yaml` reads from env vars via `${VAR:default}`.
@@ -213,6 +255,11 @@ All sensitive config lives in `.env` (gitignored). `configs/settings.yaml` reads
 AUTH_PROVIDER=firebase
 FIREBASE_PROJECT_ID=your-project-id
 FIREBASE_SA_PATH=.secrets/firebase-service-account.json
+
+# OAuth 2.1 (for Claude Desktop)
+OAUTH_ISSUER=https://your-server.run.app    # Must match public URL
+FIREBASE_WEB_API_KEY=your-firebase-web-api-key
+FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
 
 # LLM
 LLM_MODEL=openai/qwen3.5:9b
@@ -361,6 +408,50 @@ graph TB
 **Same user identity end-to-end.** The Firebase JWT token issued at login flows unchanged from browser → agent-api → MCP server. The MCP server sees the actual user, not a service account.
 
 **Multi-user safe.** Each request creates an isolated ADK session. User A's token never leaks to User B. The MCP server is stateless -- validates every request independently.
+
+### Claude Desktop OAuth Flow
+
+```mermaid
+sequenceDiagram
+    participant CD as Claude Desktop
+    participant AC as Anthropic Cloud
+    participant MCP as MCP Server
+    participant BR as User's Browser
+    participant FB as Firebase Auth
+
+    CD->>AC: Use MCP tool
+    AC->>MCP: POST /mcp
+    MCP-->>AC: 401 + WWW-Authenticate
+
+    AC->>MCP: GET /.well-known/oauth-protected-resource
+    MCP-->>AC: {authorization_servers, scopes}
+
+    AC->>MCP: GET /.well-known/openid-configuration
+    MCP-->>AC: {endpoints}
+
+    AC->>MCP: POST /register (DCR)
+    MCP-->>AC: {client_id}
+
+    AC->>BR: Open /authorize (PKCE)
+    BR->>MCP: GET /authorize
+    MCP-->>BR: Firebase login page
+
+    BR->>FB: Sign in (Google / email)
+    FB-->>BR: Firebase ID token
+
+    BR->>MCP: POST /authorize/callback
+    MCP-->>BR: {redirect_url with auth code}
+    BR->>AC: Redirect to claude.ai/callback?code=X
+
+    AC->>MCP: POST /token (code + PKCE verifier)
+    MCP-->>AC: {access_token (RS256 JWT), refresh_token}
+
+    AC->>MCP: POST /mcp + Bearer JWT
+    MCP-->>AC: Tool result
+    AC-->>CD: Response
+```
+
+The MCP server supports **dual authentication**: Firebase tokens (from the frontend/agent-api) and OAuth-issued RS256 JWTs (from Claude Desktop). Both are validated by the same `BearerAuthMiddleware`.
 
 ## License
 

@@ -39,6 +39,18 @@ class LLMConfig(BaseModel):
     api_key: str | None = None
 
 
+class OAuthConfig(BaseModel):
+    enabled: bool = True
+    issuer: str = "http://localhost:8001"
+    jwt_algorithm: str = "RS256"
+    access_token_ttl: int = 3600
+    refresh_token_ttl: int = 86400
+    auth_code_ttl: int = 300
+    firebase_api_key: str = ""
+    firebase_auth_domain: str = ""
+    firebase_project_id: str = ""
+
+
 class RoleConfig(BaseModel):
     scopes: list[str] = []
 
@@ -49,6 +61,7 @@ class Settings(BaseModel):
     mcp_server: MCPServerConfig
     agent_api: AgentAPIConfig
     llm: LLMConfig
+    oauth: OAuthConfig = OAuthConfig()
     roles: dict[str, RoleConfig] = {}
 
 

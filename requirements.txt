@@ -11,3 +11,4 @@ structlog
 httpx
 pyyaml
 python-dotenv
+PyJWT[crypto]>=2.8
